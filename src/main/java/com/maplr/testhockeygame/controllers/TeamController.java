@@ -10,8 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @Transactional
 @RequestMapping(value = "/api")
@@ -27,19 +25,19 @@ public class TeamController {
     public ResponseEntity<Team> getTeamByYear(@PathVariable int year) {
 
         Team teamByYear = teamRepository.getTeamByYear(year);
-        ResponseEntity<Team> team = new ResponseEntity<>(teamByYear, HttpStatus.OK);
-        return team;
+        if (teamByYear == null)
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+
+        return new ResponseEntity<>(teamByYear, HttpStatus.OK);
     }
 
     @PostMapping(value = "/team/{year}", consumes = "application/json")
     public ResponseEntity<Player> addTeamMember(@RequestBody Player player, @PathVariable int year) {
 
-        Player newPlayer = playerRepository.save(player);
-        ResponseEntity<Player> playerCreated = new ResponseEntity<>(newPlayer, HttpStatus.CREATED);
+        ResponseEntity<Player> playerCreated = new ResponseEntity<>(playerRepository.save(player), HttpStatus.CREATED);
 
-        List<Team> allTeams = teamRepository.findAll();
-        Team teamByYear = allTeams.stream().filter(t -> t.getYear() == (year)).findFirst().get();
-        teamByYear.getPlayers().add(newPlayer);
+        Team teamByYear = teamRepository.getTeamByYear(year);
+        teamByYear.getPlayers().add(playerCreated.getBody());
         teamRepository.save(teamByYear);
 
         return playerCreated;
@@ -47,15 +45,16 @@ public class TeamController {
 
     @PutMapping(value = "/player/captain/{id}")
     public ResponseEntity<Player> updateCaptain(@PathVariable long id) {
-        Player currentCaptain = playerRepository.findAll().stream().filter(Player::isCaptain).findFirst().orElse(new Player());
-        currentCaptain.setCaptain(false);
-        playerRepository.save(currentCaptain);
+        Player currentCaptain = playerRepository.findAll().stream().filter(Player::isCaptain).findFirst().get();
+        if (currentCaptain != null) {
+            currentCaptain.setCaptain(false);
+            playerRepository.save(currentCaptain);
+        }
 
         Player newCaptain = playerRepository.getById(id);
         newCaptain.setCaptain(true);
 
-        ResponseEntity<Player> player = new ResponseEntity<>(playerRepository.save(newCaptain), HttpStatus.OK);
-        return player;
+        return new ResponseEntity<>(playerRepository.save(newCaptain), HttpStatus.OK);
     }
 }
 
